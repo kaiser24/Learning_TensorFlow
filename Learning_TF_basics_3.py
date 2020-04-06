@@ -23,4 +23,103 @@ x_test = (x_train.astype(float) / 255 )
 x_train = x_train.reshape( ( x_train.shape[0], x_train.shape[1]*x_train.shape[2] )  )
 x_test = x_test.reshape( ( x_test.shape[0], x_test.shape[1]*x_test.shape[2] )  )
 
-print(x_train.shape, x_test.shape)
+
+session = tf.Session()
+
+# Our Model
+# 784 -> 512 -> 256 -> 10 . output are 10 classes
+
+numInputFeatures = x_train.shape[1]
+numNeuronsLayer1 = 512
+numNeuronsLayer2 = 256
+numOutputClasses = x_train.shape[1]
+starterLearningRate = 0.01
+regularizerRate = 0.1
+
+#===input data===
+inputX = tf.placeholder('float32', shape=(None,numInputFeatures), name='inputX')
+inputY = tf.placeholder('float32', shape=(None,numOutputClasses), name='inputX')
+keepProb = tf.placeholder(tf.float32)
+
+
+#===Variables (weights and biases) ===
+
+# For the weights we have a matrix of size N(i-1),Ni.
+# where i indicates the next layer and i-1 the previous layer.
+# Biases are just values to sum to the neurons of the i-th layer
+# we use tf.random_normal() to initialize the variables at random values with a given std dev
+
+weights01 = tf.Variable( tf.random_normal( [numInputFeatures,numNeuronsLayer1] ,stddev=(1/tf.sqrt(float(numInputFeatures)) ) ) )
+bias1 = tf.Variable( tf.random_normal( [numNeuronsLayer1] ) )
+
+weights12 = tf.variable( tf.random_normal( [numNeuronsLayer1,numNeuronsLayer2] ,stddev=(1/tf.sqrt(float(numNeuronsLayer1)) ) ) )
+bias2 = tf.Variable( tf.random_normal( [numNeuronsLayer2] ) )
+
+weights23 = tf.variable( tf.random_normal( [numNeuronsLayer2,numOutputClasses] ,stddev=(1/tf.sqrt(float(numNeuronsLayer2)) ) ) )
+bias3 = tf.Variable( tf.random_normal( [numOutputClasses] ) )
+
+# the graph itself. We apply a dot product between the i-1 layer 
+# and the weight and then we add biases. L(i-1) * W(i-1)i + Bi = Li
+# we also apply dropout after each layer
+partOutputLayer1 = tf.nn.relu( tf.matmul(inputX,weights01) + bias1 )
+outputLayer1 = tf.nn.dropout(partOutputLayer1, keepProb)
+
+partOutputLayer2 = tf.nn.relu( tf.matmul(outputLayer1,weights12) + bias2 )
+outputLayer2 = tf.nn.dropout(partOutputLayer2, keepProb)
+
+# our third layer is the output so we apply an output activation function
+outputLayer3 = tf.sigmoid( tf.matmul(outputLayer2,weights23) + bias3 )
+
+#one hot encodding our labels. deph = numOutputClasses
+inputYCoded = tf.one_hot( inputY,numOutputClasses )
+
+# loss function or cost function. this function tells us the current error 
+# L2 (Gaussian) regularization is being applied to punish the loss
+loss = tf.reduce_mean( tf.nn.softmax_cross_entropy_with_logits_vs(logits=outputLayer3, inputYCoded) )  + regularizerRate*( tf.reduce_sum(tf.square(bias1)) + tf.reduce_sum(tf.square(bias2)) )
+
+
+# Variable learning rate. with this our model can start with a hight learning rate
+# but will decrese to fit better our data and find the best posible values.
+# every fifth epoch will decrease to 85% (15% decrease)
+
+learningRate = tf.train.exponential_decay( starterLearningRate, 0, 5, 0.85, staircase=True )
+
+# optimizer. This is the operator that "trains" our model (weights and biases) 
+# minimizing the loss (error) given a learning rate. 2DO. Learn more abour diferent types
+# Only know SGD. here we are using an adam optimizer
+
+optimizer = tf.train.AdamOptimizer(learningRate).minimize(loss, var_list=[weights01, weights12, weights23, bias1, bias2, bias3] )
+
+# Metrics
+correctPrediction = tf.equal( tf.argmax(inputYCoded,1), tf.argmax(outputLayer3,1) )
+accuracy = tf.reduce_mean( tf.cast( correctPrediction, tf.float32 ) )
+
+# Now Lets train our model
+
+#lets train in batches. 
+# experiment. train with the whole data. what would happen.
+batch_size = 128
+epochs = 14
+dropout_prob = 0.6 
+
+training_acc = []
+trainin_loss = []
+test_acc = []
+
+session.run(tf.global_variables_initializer())
+
+
+for epoch in range(epochs):
+    # indices to shuffle the data so each epoch is trained kind of differently
+    indx = np.arange(x_train.shape[0])
+    np.random.shuffle()
+    for index in range(0,x_train,batch_size):
+        # lets run the optimizer to train 
+        session.run(optimizer , {inputX: x_train[ indx[index:index + batch_size] ], inputY: y_train[ indx[ index:index + batch_size ] ] } )
+    
+    # After training for 1 epoch lets try to predict our data
+    training_acc.append( session.run( accuracy, {inputX: x_train, inputY: y_train } ) )
+    trainin_loss.append( session.run( loss, {inputX: x_train, inputY: y_train} ) )
+
+test_acc.append()
+
