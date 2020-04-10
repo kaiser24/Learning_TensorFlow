@@ -6,8 +6,14 @@
 
 from keras.datasets import mnist
 import tensorflow as tf
+from sklearn.metrics import accuracy_score
+from sklearn.preprocessing import LabelBinarizer
+import numpy as np
 
 (x_train, y_train),( x_test, y_test) = mnist.load_data()
+lb = LabelBinarizer()
+
+
 
 # %%
 # Our data consists of images with 28,28 pixels. N,28,28. N images.
@@ -17,12 +23,17 @@ import tensorflow as tf
 # Before that we need to normilize our data. for a digital grayscale image each pixel has a value
 # from 0-255 and we need to normalize it.
 x_train = (x_train.astype(float) / 255 )
-x_test = (x_train.astype(float) / 255 )  
+x_test = (x_test.astype(float) / 255 )  
 
 # now reshape from N,28,28 -> N,28*28
 x_train = x_train.reshape( ( x_train.shape[0], x_train.shape[1]*x_train.shape[2] )  )
 x_test = x_test.reshape( ( x_test.shape[0], x_test.shape[1]*x_test.shape[2] )  )
 
+y_train = lb.fit_transform(y_train)
+
+print("Data sizes")
+print("x train: {} y train: {}".format(x_train.shape, y_train.shape))
+print("x test: {} y test: {}".format(x_test.shape, y_test.shape))
 
 session = tf.Session()
 
@@ -32,8 +43,8 @@ session = tf.Session()
 numInputFeatures = x_train.shape[1]
 numNeuronsLayer1 = 512
 numNeuronsLayer2 = 256
-numOutputClasses = x_train.shape[1]
-starterLearningRate = 0.01
+numOutputClasses = y_train.shape[1]
+starterLearningRate = 0.001
 regularizerRate = 0.1
 
 #===input data===
@@ -52,10 +63,10 @@ keepProb = tf.placeholder(tf.float32)
 weights01 = tf.Variable( tf.random_normal( [numInputFeatures,numNeuronsLayer1] ,stddev=(1/tf.sqrt(float(numInputFeatures)) ) ) )
 bias1 = tf.Variable( tf.random_normal( [numNeuronsLayer1] ) )
 
-weights12 = tf.variable( tf.random_normal( [numNeuronsLayer1,numNeuronsLayer2] ,stddev=(1/tf.sqrt(float(numNeuronsLayer1)) ) ) )
+weights12 = tf.Variable( tf.random_normal( [numNeuronsLayer1,numNeuronsLayer2] ,stddev=(1/tf.sqrt(float(numNeuronsLayer1)) ) ) )
 bias2 = tf.Variable( tf.random_normal( [numNeuronsLayer2] ) )
 
-weights23 = tf.variable( tf.random_normal( [numNeuronsLayer2,numOutputClasses] ,stddev=(1/tf.sqrt(float(numNeuronsLayer2)) ) ) )
+weights23 = tf.Variable( tf.random_normal( [numNeuronsLayer2,numOutputClasses] ,stddev=(1/tf.sqrt(float(numNeuronsLayer2)) ) ) )
 bias3 = tf.Variable( tf.random_normal( [numOutputClasses] ) )
 
 # the graph itself. We apply a dot product between the i-1 layer 
@@ -71,11 +82,12 @@ outputLayer2 = tf.nn.dropout(partOutputLayer2, keepProb)
 outputLayer3 = tf.sigmoid( tf.matmul(outputLayer2,weights23) + bias3 )
 
 #one hot encodding our labels. deph = numOutputClasses
-inputYCoded = tf.one_hot( inputY,numOutputClasses )
+#inputYCoded = tf.one_hot( inputY,numOutputClasses )
 
-# loss function or cost function. this function tells us the current error 
+# loss function or cost function. this function tells us the current error  !!!!!2DO +I
 # L2 (Gaussian) regularization is being applied to punish the loss
-loss = tf.reduce_mean( tf.nn.softmax_cross_entropy_with_logits_vs(logits=outputLayer3, inputYCoded) )  + regularizerRate*( tf.reduce_sum(tf.square(bias1)) + tf.reduce_sum(tf.square(bias2)) )
+loss = tf.reduce_mean( tf.nn.softmax_cross_entropy_with_logits_v2(logits=outputLayer3, labels=inputY) )  + regularizerRate*( tf.reduce_sum(tf.square(bias1)) + tf.reduce_sum(tf.square(bias2)) )
+#loss = tf.reduce_mean( tf.nn.softmax_cross_entropy_with_logits_v2(logits=outputLayer3, labels=inputY) )  + regularizerRate*( tf.reduce_sum(tf.square(weights01)) + tf.reduce_sum(tf.square(weights12)) + tf.reduce_sum(tf.square(weights23)) )
 
 
 # Variable learning rate. with this our model can start with a hight learning rate
@@ -91,14 +103,14 @@ learningRate = tf.train.exponential_decay( starterLearningRate, 0, 5, 0.85, stai
 optimizer = tf.train.AdamOptimizer(learningRate).minimize(loss, var_list=[weights01, weights12, weights23, bias1, bias2, bias3] )
 
 # Metrics
-correctPrediction = tf.equal( tf.argmax(inputYCoded,1), tf.argmax(outputLayer3,1) )
+correctPrediction = tf.equal( tf.argmax(inputY,1), tf.argmax(outputLayer3,1) )
 accuracy = tf.reduce_mean( tf.cast( correctPrediction, tf.float32 ) )
 
 # Now Lets train our model
 
 #lets train in batches. 
 # experiment. train with the whole data. what would happen.
-batch_size = 128
+batch_size = 256
 epochs = 14
 dropout_prob = 0.6 
 
@@ -112,14 +124,16 @@ session.run(tf.global_variables_initializer())
 for epoch in range(epochs):
     # indices to shuffle the data so each epoch is trained kind of differently
     indx = np.arange(x_train.shape[0])
-    np.random.shuffle()
-    for index in range(0,x_train,batch_size):
+    np.random.shuffle(indx)
+    for index in range(0,x_train.shape[0],batch_size):
         # lets run the optimizer to train 
-        session.run(optimizer , {inputX: x_train[ indx[index:index + batch_size] ], inputY: y_train[ indx[ index:index + batch_size ] ] } )
+        session.run(optimizer , {inputX: x_train[ indx[index:index + batch_size] ], inputY: y_train[ indx[ index:index + batch_size ] ] , keepProb: 0.6} )
     
     # After training for 1 epoch lets try to predict our data
-    training_acc.append( session.run( accuracy, {inputX: x_train, inputY: y_train } ) )
-    trainin_loss.append( session.run( loss, {inputX: x_train, inputY: y_train} ) )
+    training_acc.append( session.run( accuracy, {inputX: x_train, inputY: y_train, keepProb: 1.0 } ) )
+    trainin_loss.append( session.run( loss, {inputX: x_train, inputY: y_train, keepProb: 1.0} ) )
 
-test_acc.append()
+    test_acc.append( accuracy_score( y_test, session.run(outputLayer3, {inputX: x_test, keepProb: 1.0} ).argmax(1) ) )
+
+    print( "Epoch {0} Training Loss: {1:.3f} Training Acc: {2:.3f} Test Acc {3:.3f}".format(epoch, trainin_loss[epoch], training_acc[epoch], test_acc[epoch]) )
 
