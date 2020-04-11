@@ -8,7 +8,7 @@ from sklearn.preprocessing import StandardScaler
 # birds sounds using MFCC. 2DO. applying other methods of extracting characteristics
 
 # Reading data
-data = np.loadtxt('DSEG2SNF.txt')
+data = np.loadtxt('/home/felipe/nD/U de A/Machine learning/Learning_TensorFlow/Learning_TF_basics_4/DSEG2SNF.txt')
 np.random.shuffle(data)
 
 # Splitting 85% training. 15% testing
@@ -49,14 +49,14 @@ session = tf.Session()
 # 52 -> 36 -> 24 -> 8. Output 8 classes.
 
 numInputFeatures = x_train.shape[1]
-numNeuronsLayer1 = 500
-numNeuronsLayer2 = 200
+numNeuronsLayer1 = 36
+numNeuronsLayer2 = 20
 numOutpuClasses = 8
 
 # The rate to go down the slope
-starterLearningRate = 0.001
+starterLearningRate = 0.01
 # rate to punish the loss function.
-regularizerRate=0.01
+regularizerRate=0.1
 
 # Input data to out graph. Features, Labels, dropout_prob
 inputX = tf.placeholder('float32', shape=(None,numInputFeatures)  )
@@ -100,9 +100,9 @@ accuracy = tf.reduce_mean( tf.cast(correctPrediction,tf.float32) )
 
 
 # train
-batch_size = 256
+batch_size = 128
 epochs = 100
-dropout_prob = 0.8
+dropout_prob = 0.85
 
 train_acc = []
 train_loss = []
@@ -115,10 +115,10 @@ for epoch in range(epochs):
     np.random.shuffle(toshuffle)
     for index in range(0,x_train.shape[0], batch_size):
         session.run(optimizer, {inputX: x_train[toshuffle[index:index+batch_size]],inputY: y_train[toshuffle[index:index+batch_size]], keepProb: dropout_prob})
-    #session.run(optimizer, {inputX: x_train, inputY: y_train, keepProb: 0.6})
+    #session.run(optimizer, {inputX: x_train, inputY: y_train, keepProb: dropout_prob})
     train_acc.append( session.run(accuracy, {inputX: x_train,inputY: y_train, keepProb: 1.0}) )
     train_loss.append( session.run(loss, {inputX: x_train,inputY: y_train, keepProb: 1.0}) )
     #print(session.run(prediction, {inputX: x_test, keepProb: 1.0})[0])
-    test_acc.append( accuracy_score( y_test, session.run(prediction, {inputX: x_test, keepProb: 1.0}).argmax(1) ) )
+    test_acc.append( accuracy_score( y_test, session.run(prediction, {inputX: x_test, keepProb: 1.0}).argmax(1) +1 ) )
 
     print( "Epoch {0} Training Loss: {1:.3f} Training Acc: {2:.3f} Test Acc {3:.3f}".format(epoch, train_loss[epoch], train_acc[epoch], test_acc[epoch]) )
