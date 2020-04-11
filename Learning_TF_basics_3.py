@@ -28,9 +28,9 @@ x_test = (x_test.astype(float) / 255 )
 # now reshape from N,28,28 -> N,28*28
 x_train = x_train.reshape( ( x_train.shape[0], x_train.shape[1]*x_train.shape[2] )  )
 x_test = x_test.reshape( ( x_test.shape[0], x_test.shape[1]*x_test.shape[2] )  )
-
+print(np.min(y_train) ,np.max(y_train))
 y_train = lb.fit_transform(y_train)
-
+print(y_train.argmax(1)[2])
 print("Data sizes")
 print("x train: {} y train: {}".format(x_train.shape, y_train.shape))
 print("x test: {} y test: {}".format(x_test.shape, y_test.shape))

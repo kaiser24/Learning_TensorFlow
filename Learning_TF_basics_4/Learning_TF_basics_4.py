@@ -8,7 +8,7 @@ from sklearn.preprocessing import StandardScaler
 # birds sounds using MFCC. 2DO. applying other methods of extracting characteristics
 
 # Reading data
-data = np.loadtxt('/home/felipe/nD/U de A/Machine learning/Learning_TensorFlow/Learning_TF_basics_4/DSEG2SNF.txt')
+data = np.loadtxt('DSEG2SNF.txt')
 np.random.shuffle(data)
 
 # Splitting 85% training. 15% testing
@@ -16,7 +16,7 @@ numberData = data.shape[0]
 numberTrain = int(numberData*0.85)
 numberTest = numberData - numberTrain
 x_data = data[:,:-1]
-y_data = data[:,-1]
+y_data = data[:,-1] - 1         # IMPORTANT. KEEP YOUR LABELS FROM 0 TO MAX TO AVOID PROBLEMS
 
 #scaler=StandardScaler()
 #scaler.fit(x_data)
@@ -54,7 +54,7 @@ numNeuronsLayer2 = 20
 numOutpuClasses = 8
 
 # The rate to go down the slope
-starterLearningRate = 0.01
+starterLearningRate = 0.001
 # rate to punish the loss function.
 regularizerRate=0.1
 
@@ -85,7 +85,7 @@ prediction = tf.nn.sigmoid( tf.matmul(outputLayer2, weights23) + bias3 )
 
 
 # Defining our Loss function. L2 regularization to punish the loss function
-loss = tf.reduce_mean( tf.nn.softmax_cross_entropy_with_logits_v2(logits=prediction, labels=inputY) ) + regularizerRate*( tf.reduce_sum(tf.square(bias1)) + tf.reduce_sum(tf.square(bias2)) + tf.reduce_sum(tf.square(bias3)) )
+loss = tf.reduce_mean( tf.nn.softmax_cross_entropy_with_logits_v2(logits=prediction, labels=inputY) ) + regularizerRate*( tf.reduce_sum(tf.square(bias1)) + tf.reduce_sum(tf.square(bias2))  )
 #loss = tf.reduce_mean( tf.nn.softmax_cross_entropy_with_logits_v2(logits=prediction, labels=inputY) ) + regularizerRate*( tf.reduce_sum(tf.square(weights01)) + tf.reduce_sum(tf.square(weights12)) + tf.reduce_sum(tf.square(weights23)) )
 
 # Learning rate changes. lowers 15% each epoch to ge more precise when reaching the bottom of the slope
@@ -101,7 +101,7 @@ accuracy = tf.reduce_mean( tf.cast(correctPrediction,tf.float32) )
 
 # train
 batch_size = 128
-epochs = 100
+epochs = 1000
 dropout_prob = 0.85
 
 train_acc = []
@@ -119,6 +119,6 @@ for epoch in range(epochs):
     train_acc.append( session.run(accuracy, {inputX: x_train,inputY: y_train, keepProb: 1.0}) )
     train_loss.append( session.run(loss, {inputX: x_train,inputY: y_train, keepProb: 1.0}) )
     #print(session.run(prediction, {inputX: x_test, keepProb: 1.0})[0])
-    test_acc.append( accuracy_score( y_test, session.run(prediction, {inputX: x_test, keepProb: 1.0}).argmax(1) +1 ) )
+    test_acc.append( accuracy_score( y_test, session.run(prediction, {inputX: x_test, keepProb: 1.0}).argmax(1) ) )
 
     print( "Epoch {0} Training Loss: {1:.3f} Training Acc: {2:.3f} Test Acc {3:.3f}".format(epoch, train_loss[epoch], train_acc[epoch], test_acc[epoch]) )
